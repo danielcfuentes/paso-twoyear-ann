@@ -10,6 +10,7 @@ import {
 import { sendSubmissionEmail } from '@/lib/email';
 import path from 'path';
 import fs from 'fs';
+import { uploadsDir } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -119,8 +120,6 @@ export async function POST(req: NextRequest) {
     // Save file
     const id = uuidv4();
     const filename = `${id}.${ext}`;
-    const uploadsDir = path.join(process.cwd(), 'uploads');
-    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
     const bytes = await proof_file.arrayBuffer();
     fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(bytes));

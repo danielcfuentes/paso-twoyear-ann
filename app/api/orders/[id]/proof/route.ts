@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import path from 'path';
 import fs from 'fs';
+import { uploadsDir } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,7 @@ export async function GET(
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const filePath = path.join(process.cwd(), 'uploads', order.payment_proof_filename);
+  const filePath = path.join(uploadsDir, order.payment_proof_filename);
 
   if (!fs.existsSync(filePath)) {
     return NextResponse.json({ error: 'File not found' }, { status: 404 });

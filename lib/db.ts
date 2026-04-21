@@ -2,8 +2,9 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
-const dataDir = path.join(process.cwd(), 'data');
-const uploadsDir = path.join(process.cwd(), 'uploads');
+const persistentDir = process.env.PERSISTENT_DIR || process.cwd();
+export const dataDir = path.join(persistentDir, 'data');
+export const uploadsDir = path.join(persistentDir, 'uploads');
 
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
