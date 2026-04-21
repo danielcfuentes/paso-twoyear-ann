@@ -8,7 +8,7 @@ function QRScanner({ adminPw, onClose }: { adminPw: string; onClose: () => void 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
   const [status, setStatus] = useState<'scanning' | 'checking' | 'success' | 'already' | 'error'>('scanning');
-  const [resultName, setResultName] = useState('');
+  const [resultOrder, setResultOrder] = useState<{ full_name: string; guest_names: string[]; people_count: number } | null>(null);
   const [resultMsg, setResultMsg] = useState('');
   const lastScanned = useRef('');
 
@@ -60,11 +60,11 @@ function QRScanner({ adminPw, onClose }: { adminPw: string; onClose: () => void 
           if (res.status === 409) {
             // Already checked in — fetch name
             const info = await fetch(`/api/verify/${ticketCode}`).then(r => r.json());
-            setResultName(info.order?.full_name ?? '');
+            setResultOrder(info.order ? { full_name: info.order.full_name, guest_names: info.order.guest_names ?? [], people_count: info.order.people_count ?? 1 } : null);
             setStatus('already');
           } else if (res.ok) {
             const info = await fetch(`/api/verify/${ticketCode}`).then(r => r.json());
-            setResultName(info.order?.full_name ?? '');
+            setResultOrder(info.order ? { full_name: info.order.full_name, guest_names: info.order.guest_names ?? [], people_count: info.order.people_count ?? 1 } : null);
             setStatus('success');
           } else {
             setResultMsg(data.error || 'Invalid ticket.');
@@ -89,7 +89,7 @@ function QRScanner({ adminPw, onClose }: { adminPw: string; onClose: () => void 
   function reset() {
     lastScanned.current = '';
     setStatus('scanning');
-    setResultName('');
+    setResultOrder(null);
     setResultMsg('');
     // restart scanning
     const video = videoRef.current;
@@ -116,10 +116,10 @@ function QRScanner({ adminPw, onClose }: { adminPw: string; onClose: () => void 
           const data = await res.json();
           if (res.status === 409) {
             const info = await fetch(`/api/verify/${ticketCode}`).then(r => r.json());
-            setResultName(info.order?.full_name ?? ''); setStatus('already');
+            setResultOrder(info.order ? { full_name: info.order.full_name, guest_names: info.order.guest_names ?? [], people_count: info.order.people_count ?? 1 } : null); setStatus('already');
           } else if (res.ok) {
             const info = await fetch(`/api/verify/${ticketCode}`).then(r => r.json());
-            setResultName(info.order?.full_name ?? ''); setStatus('success');
+            setResultOrder(info.order ? { full_name: info.order.full_name, guest_names: info.order.guest_names ?? [], people_count: info.order.people_count ?? 1 } : null); setStatus('success');
           } else {
             setResultMsg(data.error || 'Invalid ticket.'); setStatus('error');
           }
@@ -185,8 +185,31 @@ function QRScanner({ adminPw, onClose }: { adminPw: string; onClose: () => void 
                 <p className="font-display text-4xl mb-2 text-center" style={{ color: stateColor }}>
                   {status === 'success' ? 'CHECKED IN!' : status === 'already' ? 'ALREADY IN' : 'INVALID'}
                 </p>
-                {resultName && (
-                  <p className="font-display text-2xl text-white text-center mb-1">{resultName}</p>
+                {resultOrder && (
+                  <div className="w-full max-w-xs mb-2">
+                    {/* Ticket holder */}
+                    <p className="font-display text-2xl text-white text-center mb-3">{resultOrder.full_name}</p>
+                    {/* Full party list */}
+                    {resultOrder.guest_names.length > 0 && (
+                      <div className="rounded-2xl p-4 space-y-2" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <p className="text-xs text-white/30 uppercase tracking-widest font-body text-center mb-3">
+                          Party of {resultOrder.people_count}
+                        </p>
+                        {[resultOrder.full_name, ...resultOrder.guest_names].map((name, i) => (
+                          <div key={i} className="flex items-center gap-3">
+                            <span
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-display flex-shrink-0"
+                              style={{ background: `${stateColor}25`, color: stateColor }}
+                            >
+                              {i + 1}
+                            </span>
+                            <span className="text-white font-body text-sm">{name}</span>
+                            {i === 0 && <span className="text-white/25 text-xs font-body ml-auto">holder</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
                 {resultMsg && (
                   <p className="text-white/40 font-body text-sm text-center mb-6">{resultMsg}</p>
