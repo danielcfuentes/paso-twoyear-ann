@@ -220,16 +220,29 @@ export default function TicketPage() {
     setSaving(true);
     try {
       const canvas = await drawTicketCanvas(ticket);
-      const dataUrl = canvas.toDataURL('image/png');
-      // Try download link first (desktop + Android)
+      const filename = `paso-ticket-${ticket.ticketCode.slice(0, 8).toUpperCase()}.png`;
+
+      // Convert canvas to blob
+      const blob = await new Promise<Blob>((resolve) =>
+        canvas.toBlob((b) => resolve(b!), 'image/png')
+      );
+      const file = new File([blob], filename, { type: 'image/png' });
+
+      // Use native share sheet if available (iOS + Android) — user taps "Save Image"
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'PASO Ticket' });
+        return;
+      }
+
+      // Desktop fallback: direct download
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.download = `paso-ticket-${ticket.ticketCode.slice(0, 8).toUpperCase()}.png`;
-      link.href = dataUrl;
+      link.href = url;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      // iOS fallback: open in new tab for long-press save
-      setTimeout(() => { window.open(dataUrl, '_blank'); }, 300);
+      URL.revokeObjectURL(url);
     } finally {
       setSaving(false);
     }
@@ -360,7 +373,7 @@ export default function TicketPage() {
           >
             {saving ? 'SAVING...' : 'SAVE AS PHOTO'}
           </button>
-          <p className="text-center text-white/20 text-xs font-body mt-3">On iPhone: image will open — hold to save</p>
+          <p className="text-center text-white/20 text-xs font-body mt-3">Tap Save Image from the share sheet to add to Photos</p>
         </div>
 
         <p className="text-center text-white/15 text-xs mt-8 font-body">@pasorunclub</p>
