@@ -6,7 +6,7 @@ import { TICKET_TYPES } from '@/lib/tickets';
 export const dynamic = 'force-dynamic';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -17,7 +17,9 @@ export async function GET(
     return NextResponse.json({ error: 'Ticket not available' }, { status: 404 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  const host = req.headers.get('host') || 'localhost:3000';
+  const protocol = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
   const verifyUrl = `${baseUrl}/scan/${order.ticket_code}`;
 
   const qrDataUrl = await QRCode.toDataURL(verifyUrl, {

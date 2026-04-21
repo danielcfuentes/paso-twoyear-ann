@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 
 type TicketData = {
@@ -23,6 +23,8 @@ export default function TicketPage() {
   const [ticket, setTicket] = useState<TicketData | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
+  const [saving, setSaving] = useState(false);
+  const ticketRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch(`/api/orders/${params.id}/ticket`)
@@ -62,7 +64,8 @@ export default function TicketPage() {
         style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
       >
         <a href="/" className="text-white/30 hover:text-white transition-colors text-sm font-body">← Home</a>
-        <span className="font-display text-xl tracking-wider" style={{ color: '#E8402A' }}>PASO</span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/paso-logo.png" alt="PASO" className="h-7" />
         <div className="w-12" />
       </div>
 
@@ -77,6 +80,7 @@ export default function TicketPage() {
 
         {/* Ticket card */}
         <div
+          ref={ticketRef}
           className="rounded-3xl overflow-hidden mb-6"
           style={{
             border: '1.5px solid rgba(232,64,42,0.4)',
@@ -168,11 +172,29 @@ export default function TicketPage() {
         {/* Actions */}
         <div className="no-print">
           <button
-            onClick={() => window.print()}
+            onClick={async () => {
+              if (!ticketRef.current || saving) return;
+              setSaving(true);
+              try {
+                const html2canvas = (await import('html2canvas')).default;
+                const canvas = await html2canvas(ticketRef.current, {
+                  backgroundColor: '#000000',
+                  scale: 3,
+                  useCORS: true,
+                  logging: false,
+                });
+                const link = document.createElement('a');
+                link.download = `paso-ticket-${ticket?.ticketCode?.slice(0, 8).toUpperCase() ?? 'ticket'}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+              } finally {
+                setSaving(false);
+              }
+            }}
             className="w-full py-5 rounded-2xl font-display text-2xl tracking-widest text-white"
-            style={{ background: '#E8402A', boxShadow: '0 4px 32px rgba(232,64,42,0.35)' }}
+            style={{ background: '#E8402A', boxShadow: '0 4px 32px rgba(232,64,42,0.35)', opacity: saving ? 0.7 : 1 }}
           >
-            SAVE / PRINT
+            {saving ? 'SAVING...' : 'SAVE AS PHOTO'}
           </button>
         </div>
 

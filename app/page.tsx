@@ -247,7 +247,8 @@ export default function HomePage() {
           className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 py-4"
           style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
         >
-          <span className="font-display text-2xl tracking-wider text-white">PASO</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/paso-logo.png" alt="PASO" className="h-8" />
           <a
             href="https://www.instagram.com/pasorunclub/"
             target="_blank"
@@ -297,12 +298,13 @@ export default function HomePage() {
 
           {/* PASO */}
           <div className="anim-paso relative mb-1">
-            <h1
-              className="font-display leading-none select-none"
-              style={{ fontSize: 'clamp(96px, 28vw, 200px)', color: '#E8402A', letterSpacing: '-0.02em' }}
-            >
-              PASO
-            </h1>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/paso-logo.png"
+              alt="PASO"
+              className="mx-auto select-none"
+              style={{ width: 'clamp(200px, 55vw, 420px)', filter: 'brightness(0) saturate(100%) invert(37%) sepia(89%) saturate(600%) hue-rotate(340deg) brightness(95%)' }}
+            />
             {/* Glow under text */}
             <div
               className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-3/4 h-8 pointer-events-none"
@@ -492,7 +494,8 @@ export default function HomePage() {
 
         {/* ── Footer ──────────────────────────────────────────────────── */}
         <footer className="px-6 pt-12 pb-32 text-center" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-          <p className="font-display text-5xl text-white/10 mb-3">PASO</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/paso-logo.png" alt="PASO" className="h-8 mx-auto mb-3 opacity-10" />
           <a
             href="https://www.instagram.com/pasorunclub/"
             target="_blank"
@@ -500,12 +503,6 @@ export default function HomePage() {
             className="text-white/30 text-xs font-body hover:text-white/60 transition-colors block mb-3"
           >
             @pasorunclub
-          </a>
-          <a
-            href="/lookup"
-            className="text-white/20 text-xs font-body hover:text-white/50 transition-colors underline"
-          >
-            Already bought a ticket? Find your order →
           </a>
         </footer>
 
@@ -539,12 +536,20 @@ export default function HomePage() {
                 </div>
               )
             ) : (
-              <button
-                onClick={() => setStep(1)}
-                className="btn-glow w-full py-4 rounded-2xl font-display text-xl tracking-widest"
-              >
-                GET TICKET — $40
-              </button>
+              <>
+                <button
+                  onClick={() => setStep(1)}
+                  className="btn-glow w-full py-4 rounded-2xl font-display text-xl tracking-widest"
+                >
+                  GET TICKET — $40
+                </button>
+                <a
+                  href="/lookup"
+                  className="block text-center text-white/50 text-xs font-body mt-2.5 hover:text-white transition-colors"
+                >
+                  Already bought a ticket? <span className="underline" style={{ color: '#E8402A' }}>Find your order →</span>
+                </a>
+              </>
             )}
           </div>
         </div>
@@ -577,7 +582,8 @@ export default function HomePage() {
           </button>
         )}
 
-        <span className="font-display text-xl tracking-wider" style={{ color: '#E8402A' }}>PASO</span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/paso-logo.png" alt="PASO" className="h-7" />
 
         {/* Step indicator */}
         {step !== 'done' ? (

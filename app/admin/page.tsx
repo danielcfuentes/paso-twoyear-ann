@@ -51,6 +51,7 @@ export default function AdminPage() {
   const [totalCapacity, setTotalCapacity] = useState(150);
   const [tab, setTab] = useState<'orders' | 'waitlist'>('orders');
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [search, setSearch] = useState('');
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [waitlistLoading, setWaitlistLoading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -131,7 +132,8 @@ export default function AdminPage() {
       <div className="min-h-screen bg-black flex items-center justify-center px-6">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
-            <p className="font-display text-6xl" style={{ color: '#E8402A' }}>PASO</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/paso-logo.png" alt="PASO" className="h-12 mx-auto mb-1" />
             <p className="font-display text-xl text-white/40 tracking-[0.3em]">ADMIN</p>
           </div>
           <div className="rounded-2xl p-6" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -164,7 +166,11 @@ export default function AdminPage() {
         className="sticky top-0 z-20 px-4 py-3 flex items-center justify-between"
         style={{ background: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
       >
-        <span className="font-display text-xl tracking-wider" style={{ color: '#E8402A' }}>PASO ADMIN</span>
+        <div className="flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/paso-logo.png" alt="PASO" className="h-6" />
+          <span className="font-display text-sm tracking-widest text-white/40">ADMIN</span>
+        </div>
         <div className="flex gap-2">
           <button
             onClick={() => tab === 'orders' ? fetchOrders(adminPw) : fetchWaitlist(adminPw)}
@@ -274,7 +280,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        <div className="flex gap-1 p-1 rounded-xl mb-5" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="flex gap-1 p-1 rounded-xl mb-3" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)' }}>
           {(['all', 'pending', 'approved', 'rejected'] as const).map(f => (
             <button
               key={f}
@@ -290,22 +296,46 @@ export default function AdminPage() {
           ))}
         </div>
 
+        {/* Search */}
+        <div className="relative mb-5">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 text-sm pointer-events-none">⌕</span>
+          <input
+            className="form-input"
+            style={{ paddingLeft: '2.25rem', background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.08)' }}
+            placeholder="Search by name or email..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+
         {loading ? (
           <div className="text-center py-16 text-white/20 font-display text-2xl tracking-widest">LOADING...</div>
-        ) : orders.length === 0 ? (
-          <div className="text-center py-16 text-white/20 font-display text-2xl tracking-widest">NO ORDERS</div>
+        ) : orders.filter(o => {
+            const q = search.toLowerCase();
+            return !q || o.full_name.toLowerCase().includes(q) || o.email.toLowerCase().includes(q);
+          }).length === 0 ? (
+          <div className="text-center py-16 text-white/20 font-display text-2xl tracking-widest">{orders.length === 0 ? 'NO ORDERS' : 'NO RESULTS'}</div>
         ) : (
           <div className="space-y-2">
-            {orders.map(order => {
+            {orders
+              .filter(o => {
+                const q = search.toLowerCase();
+                return !q || o.full_name.toLowerCase().includes(q) || o.email.toLowerCase().includes(q);
+              })
+              .map(order => {
               const badge = STATUS_BADGE[order.status];
+              const canCheckIn = order.status === 'approved' && !order.checked_in;
               return (
                 <div
                   key={order.id}
                   className="rounded-2xl p-4 transition-all hover:border-white/10"
-                  style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer' }}
-                  onClick={() => setSelectedOrder(order)}
+                  style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)' }}
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div
+                    className="flex items-start justify-between gap-3"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setSelectedOrder(order)}
+                  >
                     <div className="min-w-0">
                       <p className="font-display text-lg text-white truncate">{order.full_name}</p>
                       <p className="text-xs text-white/35 font-body truncate mt-0.5">{order.email}</p>
@@ -320,7 +350,11 @@ export default function AdminPage() {
                       <span className="font-display text-base" style={{ color: '#E8402A' }}>${order.amount_due}</span>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div
+                    className="flex items-center justify-between mt-2 pt-2"
+                    style={{ borderTop: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}
+                    onClick={() => setSelectedOrder(order)}
+                  >
                     <span className="text-xs text-white/25 font-body">
                       {order.ticket_count} ticket{order.ticket_count !== 1 ? 's' : ''} · {order.people_count} {order.people_count === 1 ? 'person' : 'people'}
                     </span>
@@ -332,6 +366,16 @@ export default function AdminPage() {
                     <div className="mt-2 px-2 py-1 rounded text-xs text-center font-display tracking-wider" style={{ background: 'rgba(34,197,94,0.08)', color: '#22c55e' }}>
                       ✓ CHECKED IN
                     </div>
+                  )}
+                  {canCheckIn && (
+                    <button
+                      onClick={e => { e.stopPropagation(); checkInOrder(order.id); }}
+                      disabled={actionLoading === order.id + 'checkin'}
+                      className="mt-2 w-full py-2.5 rounded-xl font-display text-sm tracking-widest text-white transition-opacity"
+                      style={{ background: '#2563eb', opacity: actionLoading === order.id + 'checkin' ? 0.5 : 1 }}
+                    >
+                      {actionLoading === order.id + 'checkin' ? 'CHECKING IN...' : '⬤ CHECK IN'}
+                    </button>
                   )}
                 </div>
               );
