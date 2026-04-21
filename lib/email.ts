@@ -9,12 +9,18 @@ function getSiteUrl() {
 }
 
 function getTransporter() {
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return null;
+  const user = process.env.SMTP_USER?.trim();
+  const pass = process.env.SMTP_PASS?.trim().replace(/\s+/g, ''); // strip spaces from app password
+  if (!user || !pass) {
+    console.error('[email] SMTP_USER or SMTP_PASS not set — emails disabled');
+    return null;
+  }
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.SMTP_PORT || '587'),
     secure: false,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    requireTLS: true,
+    auth: { user, pass },
   });
 }
 
@@ -44,6 +50,7 @@ export async function sendSubmissionEmail(order: {
   const transporter = getTransporter();
   if (!transporter) return;
   const statusUrl = `${getSiteUrl()}/confirmation/${order.id}`;
+  console.log(`[email] Sending submission email to ${order.email} — link: ${statusUrl}`);
   await transporter.sendMail({
     from: process.env.FROM_EMAIL || `"PASO Run Club" <${process.env.SMTP_USER}>`,
     to: order.email,
@@ -77,6 +84,7 @@ export async function sendConfirmationEmail(order: {
   const transporter = getTransporter();
   if (!transporter) return;
   const ticketUrl = `${getSiteUrl()}/ticket/${order.id}`;
+  console.log(`[email] Sending confirmation email to ${order.email} — link: ${ticketUrl}`);
   await transporter.sendMail({
     from: process.env.FROM_EMAIL || `"PASO Run Club" <${process.env.SMTP_USER}>`,
     to: order.email,
