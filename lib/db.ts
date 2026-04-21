@@ -48,6 +48,9 @@ export function getDb(): Database.Database {
       );
     `);
 
+    // Migrate: add guest_names column if not present
+    try { db.exec(`ALTER TABLE orders ADD COLUMN guest_names TEXT`); } catch (_) {}
+
     global._pasoDb = db;
   }
   return global._pasoDb;

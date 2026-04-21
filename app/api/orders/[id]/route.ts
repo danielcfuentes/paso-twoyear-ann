@@ -38,12 +38,7 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const { status, notes } = await req.json();
-
-  if (!['approved', 'rejected', 'pending'].includes(status)) {
-    return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
-  }
-
+  const body = await req.json();
   const db = getDb();
   const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id) as Record<string, unknown> | undefined;
 
@@ -51,9 +46,26 @@ export async function PATCH(
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 
+  // Check-in action
+  if (body.action === 'check_in') {
+    if (order.status !== 'approved') {
+      return NextResponse.json({ error: 'Order must be approved to check in.' }, { status: 400 });
+    }
+    if (order.checked_in) {
+      return NextResponse.json({ error: 'Already checked in.' }, { status: 409 });
+    }
+    db.prepare(`UPDATE orders SET checked_in = 1, checked_in_at = datetime('now') WHERE id = ?`).run(id);
+    return NextResponse.json({ success: true });
+  }
+
+  const { status, notes } = body;
+
+  if (!['approved', 'rejected', 'pending'].includes(status)) {
+    return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+  }
+
   let ticket_code = order.ticket_code as string | null;
 
-  // Generate a unique ticket code on first approval
   if (status === 'approved' && !ticket_code) {
     ticket_code = uuidv4();
   }
@@ -62,7 +74,6 @@ export async function PATCH(
     UPDATE orders SET status = ?, notes = ?, ticket_code = ? WHERE id = ?
   `).run(status, notes ?? order.notes, ticket_code, id);
 
-  // Fire-and-forget emails
   try {
     const typeMeta = TICKET_TYPES[order.ticket_type as keyof typeof TICKET_TYPES];
     if (status === 'approved') {

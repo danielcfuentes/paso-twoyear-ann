@@ -28,6 +28,9 @@ export async function GET(
 
   const typeMeta = TICKET_TYPES[order.ticket_type as keyof typeof TICKET_TYPES];
 
+  let guest_names: string[] = [];
+  try { guest_names = JSON.parse((order.guest_names as string) || '[]'); } catch (_) {}
+
   return NextResponse.json({
     qrCode: qrDataUrl,
     ticketCode: order.ticket_code,
@@ -40,6 +43,7 @@ export async function GET(
       ticket_count: order.ticket_count,
       people_count: order.people_count,
       amount_due: order.amount_due,
+      guest_names,
     },
   });
 }

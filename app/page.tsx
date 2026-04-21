@@ -153,12 +153,13 @@ interface FormState {
   phone: string;
   instagram: string;
   ticket_count: number;
+  guest_names: string[];
 }
 
 export default function HomePage() {
   const [step, setStep] = useState<Step>('landing');
   const [form, setForm] = useState<FormState>({
-    full_name: '', email: '', phone: '', instagram: '', ticket_count: 1,
+    full_name: '', email: '', phone: '', instagram: '', ticket_count: 1, guest_names: [],
   });
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
@@ -208,6 +209,9 @@ export default function HomePage() {
     if (!form.full_name.trim()) return 'Full name is required.';
     if (!form.email.trim() || !form.email.includes('@')) return 'Valid email required.';
     if (form.phone.replace(/\D/g, '').length < 10) return 'Valid phone number required.';
+    for (let i = 0; i < form.ticket_count - 1; i++) {
+      if (!form.guest_names[i]?.trim()) return `Please enter a name for Guest ${i + 2}.`;
+    }
     return '';
   }
 
@@ -221,6 +225,7 @@ export default function HomePage() {
     fd.append('instagram', form.instagram);
     fd.append('ticket_type', 'general');
     fd.append('ticket_count', String(form.ticket_count));
+    fd.append('guest_names', JSON.stringify(form.guest_names.filter(n => n.trim())));
     fd.append('proof', proofFile);
     try {
       const res = await fetch('/api/orders', { method: 'POST', body: fd });
@@ -639,7 +644,10 @@ export default function HomePage() {
                 </label>
                 <div className="flex items-center gap-4">
                   <button
-                    onClick={() => setForm(p => ({ ...p, ticket_count: Math.max(1, p.ticket_count - 1) }))}
+                    onClick={() => setForm(p => {
+                      const count = Math.max(1, p.ticket_count - 1);
+                      return { ...p, ticket_count: count, guest_names: p.guest_names.slice(0, count - 1) };
+                    })}
                     className="w-14 h-14 rounded-xl text-2xl text-white flex items-center justify-center transition-colors"
                     style={{ background: '#111', border: '1px solid rgba(255,255,255,0.08)' }}
                   >
@@ -647,9 +655,15 @@ export default function HomePage() {
                   </button>
                   <div className="flex-1 text-center">
                     <span className="font-display text-5xl" style={{ color: '#E8402A' }}>{form.ticket_count}</span>
+                    <p className="text-white/20 text-xs font-body mt-1">max 4</p>
                   </div>
                   <button
-                    onClick={() => setForm(p => ({ ...p, ticket_count: Math.min(10, p.ticket_count + 1) }))}
+                    onClick={() => setForm(p => {
+                      const count = Math.min(4, p.ticket_count + 1);
+                      const guests = [...p.guest_names];
+                      while (guests.length < count - 1) guests.push('');
+                      return { ...p, ticket_count: count, guest_names: guests };
+                    })}
                     className="w-14 h-14 rounded-xl text-2xl text-white flex items-center justify-center transition-colors"
                     style={{ background: '#111', border: '1px solid rgba(255,255,255,0.08)' }}
                   >
@@ -657,6 +671,29 @@ export default function HomePage() {
                   </button>
                 </div>
               </div>
+
+              {/* Guest names for extra tickets */}
+              {form.ticket_count > 1 && (
+                <div className="space-y-3">
+                  <label className="block text-xs text-white/40 uppercase tracking-widest font-body">
+                    Guest Names <span style={{ color: '#E8402A' }}>*</span>
+                  </label>
+                  {Array.from({ length: form.ticket_count - 1 }).map((_, i) => (
+                    <div key={i}>
+                      <input
+                        className="form-input"
+                        placeholder={`Guest ${i + 2} full name`}
+                        value={form.guest_names[i] ?? ''}
+                        onChange={e => setForm(p => {
+                          const names = [...p.guest_names];
+                          names[i] = e.target.value;
+                          return { ...p, guest_names: names };
+                        })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Total */}
               <div

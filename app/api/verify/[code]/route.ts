@@ -29,6 +29,9 @@ export async function GET(
 
   const typeMeta = TICKET_TYPES[order.ticket_type as keyof typeof TICKET_TYPES];
 
+  let guest_names: string[] = [];
+  try { guest_names = JSON.parse((order.guest_names as string) || '[]'); } catch (_) {}
+
   if (order.checked_in) {
     return NextResponse.json({
       valid: false,
@@ -40,6 +43,7 @@ export async function GET(
         full_name: order.full_name,
         ticket_type: typeMeta?.name ?? order.ticket_type,
         people_count: order.people_count,
+        guest_names,
       },
     });
   }
@@ -52,6 +56,7 @@ export async function GET(
       ticket_type: typeMeta?.name ?? order.ticket_type,
       ticket_count: order.ticket_count,
       people_count: order.people_count,
+      guest_names,
     },
   });
 }

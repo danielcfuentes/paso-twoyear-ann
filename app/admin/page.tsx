@@ -16,6 +16,7 @@ type Order = {
   checked_in: number;
   checked_in_at: string | null;
   created_at: string;
+  guest_names: string | null;
 };
 
 type Stats = {
@@ -27,8 +28,15 @@ type Stats = {
   spots_used: number;
 };
 
+type WaitlistEntry = {
+  id: number;
+  email: string;
+  full_name: string | null;
+  created_at: string;
+};
+
 const STATUS_BADGE: Record<string, { label: string; bg: string; color: string }> = {
-  pending:  { label: 'Pending',  bg: 'rgba(232,64,42,0.15)',  color: '#E8402A' },
+  pending:  { label: 'Pending',  bg: 'rgba(234,179,8,0.15)',  color: '#eab308' },
   approved: { label: 'Approved', bg: 'rgba(34,197,94,0.15)',  color: '#22c55e' },
   rejected: { label: 'Rejected', bg: 'rgba(239,68,68,0.15)',  color: '#ef4444' },
 };
@@ -41,7 +49,10 @@ export default function AdminPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [totalCapacity, setTotalCapacity] = useState(150);
+  const [tab, setTab] = useState<'orders' | 'waitlist'>('orders');
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [actionLoading, setActionLoading] = useState('');
@@ -65,9 +76,23 @@ export default function AdminPage() {
     }
   }, [filter]);
 
+  const fetchWaitlist = useCallback(async (password: string) => {
+    setWaitlistLoading(true);
+    try {
+      const res = await fetch('/api/waitlist', { headers: { 'x-admin-password': password } });
+      if (res.ok) { const data = await res.json(); setWaitlist(data.list ?? []); }
+    } finally {
+      setWaitlistLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (authed && adminPw) fetchOrders(adminPw);
   }, [authed, adminPw, filter, fetchOrders]);
+
+  useEffect(() => {
+    if (authed && adminPw && tab === 'waitlist') fetchWaitlist(adminPw);
+  }, [authed, adminPw, tab, fetchWaitlist]);
 
   function handleLogin() {
     if (!pw.trim()) return;
@@ -83,6 +108,18 @@ export default function AdminPage() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
       body: JSON.stringify({ status }),
+    });
+    await fetchOrders(adminPw);
+    setSelectedOrder(null);
+    setActionLoading('');
+  }
+
+  async function checkInOrder(orderId: string) {
+    setActionLoading(orderId + 'checkin');
+    await fetch(`/api/orders/${orderId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+      body: JSON.stringify({ action: 'check_in' }),
     });
     await fetchOrders(adminPw);
     setSelectedOrder(null);
@@ -130,7 +167,7 @@ export default function AdminPage() {
         <span className="font-display text-xl tracking-wider" style={{ color: '#E8402A' }}>PASO ADMIN</span>
         <div className="flex gap-2">
           <button
-            onClick={() => fetchOrders(adminPw)}
+            onClick={() => tab === 'orders' ? fetchOrders(adminPw) : fetchWaitlist(adminPw)}
             className="px-3 py-1.5 rounded-lg text-xs font-body text-white/40 hover:text-white transition-colors"
             style={{ background: '#111', border: '1px solid rgba(255,255,255,0.06)' }}
           >
@@ -147,6 +184,62 @@ export default function AdminPage() {
       </div>
 
       <div className="px-4 py-6 max-w-2xl mx-auto">
+
+        {/* Top-level tab switcher */}
+        <div className="flex gap-1 p-1 rounded-xl mb-5" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)' }}>
+          {(['orders', 'waitlist'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className="flex-1 py-2 rounded-lg text-xs font-display tracking-widest transition-all"
+              style={{
+                background: tab === t ? '#E8402A' : 'transparent',
+                color: tab === t ? '#fff' : 'rgba(255,255,255,0.35)',
+              }}
+            >
+              {t === 'orders' ? 'ORDERS' : `WAITLIST${waitlist.length ? ` (${waitlist.length})` : ''}`}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'waitlist' ? (
+          <div>
+            {waitlistLoading ? (
+              <div className="text-center py-16 text-white/20 font-display text-2xl tracking-widest">LOADING...</div>
+            ) : waitlist.length === 0 ? (
+              <div className="text-center py-16 text-white/20 font-display text-2xl tracking-widest">NO WAITLIST</div>
+            ) : (
+              <div className="space-y-2">
+                {waitlist.map((entry, i) => (
+                  <div
+                    key={entry.id}
+                    className="rounded-2xl p-4"
+                    style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)' }}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-display flex-shrink-0"
+                          style={{ background: 'rgba(232,64,42,0.15)', color: '#E8402A' }}
+                        >
+                          {i + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-display text-lg text-white truncate">{entry.full_name || '—'}</p>
+                          <p className="text-xs text-white/35 font-body truncate">{entry.email}</p>
+                        </div>
+                      </div>
+                      <span className="text-xs text-white/20 font-body flex-shrink-0">
+                        {new Date(entry.created_at + 'Z').toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
         {stats && (
           <div className="grid grid-cols-2 gap-3 mb-5 sm:grid-cols-4">
             {[
@@ -245,6 +338,8 @@ export default function AdminPage() {
             })}
           </div>
         )}
+          </>
+        )}
       </div>
 
       {selectedOrder && (
@@ -277,7 +372,6 @@ export default function AdminPage() {
                   { label: 'Phone',     val: selectedOrder.phone },
                   { label: 'Instagram', val: selectedOrder.instagram ? `@${selectedOrder.instagram}` : '—' },
                   { label: 'Tickets',   val: `${selectedOrder.ticket_count} × General Admission` },
-                  { label: 'Guests',    val: `${selectedOrder.people_count} people` },
                   { label: 'Submitted', val: new Date(selectedOrder.created_at + 'Z').toLocaleString() },
                 ].map(({ label, val }) => (
                   <div key={label} className="flex justify-between gap-4">
@@ -285,6 +379,28 @@ export default function AdminPage() {
                     <span className="text-white text-right">{val}</span>
                   </div>
                 ))}
+
+                {/* Guest names */}
+                {(() => {
+                  let names: string[] = [];
+                  try { names = JSON.parse(selectedOrder.guest_names || '[]'); } catch (_) {}
+                  const all = [selectedOrder.full_name, ...names];
+                  return (
+                    <div className="pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                      <p className="text-white/30 mb-2">Party ({all.length})</p>
+                      <div className="space-y-1">
+                        {all.map((name, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0" style={{ background: 'rgba(232,64,42,0.15)', color: '#E8402A' }}>{i + 1}</span>
+                            <span className="text-white text-sm">{name}</span>
+                            {i === 0 && <span className="text-white/25 text-xs">(ticket holder)</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div className="flex justify-between gap-4 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                   <span className="text-white/30">Amount</span>
                   <span className="font-display text-xl" style={{ color: '#E8402A' }}>${selectedOrder.amount_due}</span>
@@ -316,6 +432,21 @@ export default function AdminPage() {
               )}
 
               <div className="space-y-2 pt-1">
+                {selectedOrder.status === 'approved' && !selectedOrder.checked_in && (
+                  <button
+                    onClick={() => checkInOrder(selectedOrder.id)}
+                    disabled={!!actionLoading}
+                    className="w-full py-4 rounded-xl font-display text-xl tracking-widest text-white transition-opacity"
+                    style={{ background: '#2563eb', opacity: actionLoading ? 0.5 : 1, boxShadow: '0 4px 24px rgba(37,99,235,0.25)' }}
+                  >
+                    {actionLoading === selectedOrder.id + 'checkin' ? 'CHECKING IN...' : '⬤ CHECK IN AT DOOR'}
+                  </button>
+                )}
+                {selectedOrder.checked_in === 1 && (
+                  <div className="w-full py-3 rounded-xl text-center font-display text-lg tracking-widest" style={{ background: 'rgba(34,197,94,0.08)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.25)' }}>
+                    ✓ CHECKED IN {selectedOrder.checked_in_at ? `· ${new Date(selectedOrder.checked_in_at + 'Z').toLocaleTimeString()}` : ''}
+                  </div>
+                )}
                 {selectedOrder.status !== 'approved' && (
                   <button
                     onClick={() => updateStatus(selectedOrder.id, 'approved')}

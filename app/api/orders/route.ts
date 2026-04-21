@@ -67,9 +67,16 @@ export async function POST(req: NextRequest) {
     const ticket_type = formData.get('ticket_type') as TicketTypeId;
     const ticket_count = parseInt(formData.get('ticket_count') as string);
     const proof_file = formData.get('proof') as File | null;
+    const guest_names_raw = (formData.get('guest_names') as string) || '[]';
+    let guest_names: string[] = [];
+    try { guest_names = JSON.parse(guest_names_raw); } catch (_) {}
 
     if (!full_name || !email || !phone || !ticket_type || !ticket_count || !proof_file) {
       return NextResponse.json({ error: 'All fields are required.' }, { status: 400 });
+    }
+
+    if (ticket_count > 4) {
+      return NextResponse.json({ error: 'Maximum 4 tickets per order.' }, { status: 400 });
     }
 
     if (!TICKET_TYPES[ticket_type]) {
@@ -121,9 +128,9 @@ export async function POST(req: NextRequest) {
 
     db.prepare(`
       INSERT INTO orders
-        (id, full_name, email, phone, instagram, ticket_type, ticket_count, people_count, amount_due, payment_proof_filename)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, full_name, email, phone, instagram || null, ticket_type, ticket_count, people_count, amount_due, filename);
+        (id, full_name, email, phone, instagram, ticket_type, ticket_count, people_count, amount_due, payment_proof_filename, guest_names)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, full_name, email, phone, instagram || null, ticket_type, ticket_count, people_count, amount_due, filename, JSON.stringify(guest_names));
 
     // Fire-and-forget submission confirmation email
     sendSubmissionEmail({ full_name, email, ticket_count, amount_due, id }).catch(console.error);

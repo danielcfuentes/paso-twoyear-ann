@@ -14,6 +14,7 @@ type TicketData = {
     ticket_count: number;
     people_count: number;
     amount_due: number;
+    guest_names: string[];
   };
 };
 
@@ -104,6 +105,19 @@ export default function TicketPage() {
                 </div>
               ))}
             </div>
+            {ticket.order.guest_names && ticket.order.guest_names.length > 0 && (
+              <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <p className="text-xs text-white/30 tracking-widest font-body mb-2">PARTY</p>
+                <div className="space-y-1">
+                  {[ticket.order.full_name, ...ticket.order.guest_names].map((name, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs flex-shrink-0" style={{ background: 'rgba(232,64,42,0.2)', color: '#E8402A', fontSize: 9 }}>{i + 1}</span>
+                      <span className="text-white/80 font-body text-sm">{name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Perforated divider */}
