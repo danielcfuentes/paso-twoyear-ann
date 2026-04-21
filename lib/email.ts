@@ -10,11 +10,12 @@ function getSiteUrl() {
 
 function getTransporter() {
   const user = process.env.SMTP_USER?.trim();
-  const pass = process.env.SMTP_PASS?.trim().replace(/\s+/g, ''); // strip spaces from app password
+  const pass = process.env.SMTP_PASS?.trim().replace(/\s+/g, '');
   if (!user || !pass) {
     console.error('[email] SMTP_USER or SMTP_PASS not set — emails disabled');
     return null;
   }
+  console.log(`[email] Transporter created for ${user}, pass length: ${pass.length}`);
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.SMTP_PORT || '587'),
@@ -22,6 +23,16 @@ function getTransporter() {
     requireTLS: true,
     auth: { user, pass },
   });
+}
+
+async function send(transporter: nodemailer.Transporter, mail: nodemailer.SendMailOptions) {
+  try {
+    const info = await transporter.sendMail(mail);
+    console.log(`[email] ✓ Sent to ${mail.to} — messageId: ${info.messageId}`);
+  } catch (err) {
+    console.error(`[email] ✗ Failed to send to ${mail.to}:`, err);
+    throw err;
+  }
 }
 
 const base = (content: string) => `
@@ -51,7 +62,7 @@ export async function sendSubmissionEmail(order: {
   if (!transporter) return;
   const statusUrl = `${getSiteUrl()}/confirmation/${order.id}`;
   console.log(`[email] Sending submission email to ${order.email} — link: ${statusUrl}`);
-  await transporter.sendMail({
+  await send(transporter, {
     from: process.env.FROM_EMAIL || `"PASO Run Club" <${process.env.SMTP_USER}>`,
     to: order.email,
     subject: 'We got your order — PASO 2 Year Anniversary',
@@ -85,7 +96,7 @@ export async function sendConfirmationEmail(order: {
   if (!transporter) return;
   const ticketUrl = `${getSiteUrl()}/ticket/${order.id}`;
   console.log(`[email] Sending confirmation email to ${order.email} — link: ${ticketUrl}`);
-  await transporter.sendMail({
+  await send(transporter, {
     from: process.env.FROM_EMAIL || `"PASO Run Club" <${process.env.SMTP_USER}>`,
     to: order.email,
     subject: '✅ Ticket confirmed — PASO 2 Year Anniversary',
@@ -116,7 +127,7 @@ export async function sendConfirmationEmail(order: {
 export async function sendRejectionEmail(order: { full_name: string; email: string }) {
   const transporter = getTransporter();
   if (!transporter) return;
-  await transporter.sendMail({
+  await send(transporter, {
     from: process.env.FROM_EMAIL || `"PASO Run Club" <${process.env.SMTP_USER}>`,
     to: order.email,
     subject: 'Regarding your ticket request — PASO 2 Year Anniversary',
@@ -133,7 +144,7 @@ export async function sendRejectionEmail(order: { full_name: string; email: stri
 export async function sendWaitlistConfirmEmail(email: string, name: string) {
   const transporter = getTransporter();
   if (!transporter) return;
-  await transporter.sendMail({
+  await send(transporter, {
     from: process.env.FROM_EMAIL || `"PASO Run Club" <${process.env.SMTP_USER}>`,
     to: email,
     subject: "You're on the waitlist — PASO 2 Year Anniversary",
