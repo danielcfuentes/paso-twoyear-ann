@@ -50,7 +50,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [totalCapacity, setTotalCapacity] = useState(150);
   const [tab, setTab] = useState<'orders' | 'waitlist'>('orders');
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'checked_in'>('all');
   const [search, setSearch] = useState('');
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [waitlistLoading, setWaitlistLoading] = useState(false);
@@ -281,17 +281,18 @@ export default function AdminPage() {
         )}
 
         <div className="flex gap-1 p-1 rounded-xl mb-3" style={{ background: '#0d0d0d', border: '1px solid rgba(255,255,255,0.06)' }}>
-          {(['all', 'pending', 'approved', 'rejected'] as const).map(f => (
+          {(['all', 'pending', 'approved', 'rejected', 'checked_in'] as const).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className="flex-1 py-2 rounded-lg text-xs font-display tracking-widest capitalize transition-all"
+              className="flex-1 py-2 rounded-lg font-display tracking-widest transition-all"
               style={{
-                background: filter === f ? '#E8402A' : 'transparent',
+                fontSize: 10,
+                background: filter === f ? (f === 'checked_in' ? '#22c55e' : '#E8402A') : 'transparent',
                 color: filter === f ? '#fff' : 'rgba(255,255,255,0.35)',
               }}
             >
-              {f.toUpperCase()}
+              {f === 'checked_in' ? '✓ IN' : f.toUpperCase()}
             </button>
           ))}
         </div>

@@ -315,18 +315,12 @@ export default function HomePage() {
           {/* Subtitle */}
           <div className="anim-sub">
             <p
-              className="font-display text-white tracking-[0.25em] mb-1"
-              style={{ fontSize: 'clamp(18px, 5vw, 32px)' }}
-            >
-              RUN CLUB
-            </p>
-            <div className="line-slide h-0.5 bg-[#E8402A] mx-auto mb-4" />
-            <p
-              className="font-display text-white/60 tracking-[0.4em]"
-              style={{ fontSize: 'clamp(11px, 3vw, 14px)' }}
+              className="font-display tracking-[0.35em] mb-2"
+              style={{ fontSize: 'clamp(13px, 3.5vw, 18px)', color: '#E8402A' }}
             >
               CELEBRATION DINNER
             </p>
+            <div className="line-slide h-0.5 bg-[#E8402A] mx-auto mb-3" />
           </div>
 
           {/* Countdown */}

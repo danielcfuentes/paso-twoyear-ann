@@ -18,8 +18,8 @@ export async function GET(
   }
 
   const host = req.headers.get('host') || 'localhost:3000';
-  const protocol = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https';
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`;
+  const protocol = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
+  const baseUrl = `${protocol}://${host}`;
   const verifyUrl = `${baseUrl}/scan/${order.ticket_code}`;
 
   const qrDataUrl = await QRCode.toDataURL(verifyUrl, {

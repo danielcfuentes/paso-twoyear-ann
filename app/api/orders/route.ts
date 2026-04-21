@@ -30,7 +30,9 @@ export async function GET(req: NextRequest) {
   let query = 'SELECT * FROM orders';
   const params: string[] = [];
 
-  if (status && status !== 'all') {
+  if (status === 'checked_in') {
+    query += ' WHERE checked_in = 1';
+  } else if (status && status !== 'all') {
     query += ' WHERE status = ?';
     params.push(status);
   }
