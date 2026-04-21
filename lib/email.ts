@@ -18,9 +18,9 @@ function getTransporter() {
   console.log(`[email] Transporter created for ${user}, pass length: ${pass.length}`);
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false,
-    requireTLS: true,
+    port: parseInt(process.env.SMTP_PORT || '465'),
+    secure: true,
+    family: 4,
     auth: { user, pass },
   });
 }
