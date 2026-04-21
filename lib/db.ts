@@ -49,8 +49,10 @@ export function getDb(): Database.Database {
       );
     `);
 
-    // Migrate: add guest_names column if not present
+    // Migrations
     try { db.exec(`ALTER TABLE orders ADD COLUMN guest_names TEXT`); } catch (_) {}
+    try { db.exec(`ALTER TABLE orders ADD COLUMN proof_hash TEXT`); } catch (_) {}
+    try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_proof_hash ON orders(proof_hash)`); } catch (_) {}
 
     global._pasoDb = db;
   }

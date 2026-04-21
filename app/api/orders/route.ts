@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 import {
   calculateAmount,
   calculatePeopleCount,
@@ -117,21 +118,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not enough spots available.' }, { status: 400 });
     }
 
+    // Read file bytes and hash for duplicate detection
+    const bytes = await proof_file.arrayBuffer();
+    const fileBuffer = Buffer.from(bytes);
+    const proof_hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+
+    // Reject if this exact screenshot was already submitted
+    const existing = db.prepare('SELECT id FROM orders WHERE proof_hash = ?').get(proof_hash);
+    if (existing) {
+      return NextResponse.json(
+        { error: 'This payment screenshot has already been submitted. Please contact us if you believe this is an error.' },
+        { status: 400 }
+      );
+    }
+
     // Save file
     const id = uuidv4();
     const filename = `${id}.${ext}`;
-
-    const bytes = await proof_file.arrayBuffer();
-    fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(bytes));
+    fs.writeFileSync(path.join(uploadsDir, filename), fileBuffer);
 
     const amount_due = calculateAmount(ticket_type, ticket_count);
     const people_count = newPeople;
 
     db.prepare(`
       INSERT INTO orders
-        (id, full_name, email, phone, instagram, ticket_type, ticket_count, people_count, amount_due, payment_proof_filename, guest_names)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, full_name, email, phone, instagram || null, ticket_type, ticket_count, people_count, amount_due, filename, JSON.stringify(guest_names));
+        (id, full_name, email, phone, instagram, ticket_type, ticket_count, people_count, amount_due, payment_proof_filename, guest_names, proof_hash)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, full_name, email, phone, instagram || null, ticket_type, ticket_count, people_count, amount_due, filename, JSON.stringify(guest_names), proof_hash);
 
     // Fire-and-forget submission confirmation email
     sendSubmissionEmail({ full_name, email, ticket_count, amount_due, id }).catch(console.error);
