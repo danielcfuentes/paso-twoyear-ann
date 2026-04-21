@@ -1,5 +1,13 @@
 import nodemailer from 'nodemailer';
 
+function getSiteUrl() {
+  // SITE_URL takes priority (set this in Railway to your domain)
+  if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/$/, '');
+  // Railway injects RAILWAY_PUBLIC_DOMAIN automatically
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) return `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+  return 'http://localhost:3000';
+}
+
 function getTransporter() {
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) return null;
   return nodemailer.createTransport({
@@ -35,7 +43,7 @@ export async function sendSubmissionEmail(order: {
 }) {
   const transporter = getTransporter();
   if (!transporter) return;
-  const statusUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/confirmation/${order.id}`;
+  const statusUrl = `${getSiteUrl()}/confirmation/${order.id}`;
   await transporter.sendMail({
     from: process.env.FROM_EMAIL || `"PASO Run Club" <${process.env.SMTP_USER}>`,
     to: order.email,
@@ -68,7 +76,7 @@ export async function sendConfirmationEmail(order: {
 }) {
   const transporter = getTransporter();
   if (!transporter) return;
-  const ticketUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/ticket/${order.id}`;
+  const ticketUrl = `${getSiteUrl()}/ticket/${order.id}`;
   await transporter.sendMail({
     from: process.env.FROM_EMAIL || `"PASO Run Club" <${process.env.SMTP_USER}>`,
     to: order.email,
