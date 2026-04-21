@@ -1,6 +1,225 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+
+// ─── QR Scanner Overlay ───────────────────────────────────────────────────
+function QRScanner({ adminPw, onClose }: { adminPw: string; onClose: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rafRef = useRef<number>(0);
+  const [status, setStatus] = useState<'scanning' | 'checking' | 'success' | 'already' | 'error'>('scanning');
+  const [resultName, setResultName] = useState('');
+  const [resultMsg, setResultMsg] = useState('');
+  const lastScanned = useRef('');
+
+  useEffect(() => {
+    let stream: MediaStream;
+    async function start() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+          tick();
+        }
+      } catch {
+        setStatus('error');
+        setResultMsg('Camera access denied. Allow camera permission and try again.');
+      }
+    }
+
+    async function tick() {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (!video || !canvas || video.readyState < 2) { rafRef.current = requestAnimationFrame(tick); return; }
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(video, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      const jsQR = (await import('jsqr')).default;
+      const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+
+      if (code?.data && code.data !== lastScanned.current) {
+        lastScanned.current = code.data;
+        // Extract ticket code from URL: last path segment of /scan/{code}
+        const match = code.data.match(/\/scan\/([a-f0-9-]{36})/i);
+        if (!match) { setTimeout(() => { lastScanned.current = ''; }, 2000); rafRef.current = requestAnimationFrame(tick); return; }
+        const ticketCode = match[1];
+        setStatus('checking');
+        try {
+          const res = await fetch(`/api/verify/${ticketCode}`, {
+            method: 'POST',
+            headers: { 'x-admin-password': adminPw },
+          });
+          const data = await res.json();
+          if (res.status === 409) {
+            // Already checked in — fetch name
+            const info = await fetch(`/api/verify/${ticketCode}`).then(r => r.json());
+            setResultName(info.order?.full_name ?? '');
+            setStatus('already');
+          } else if (res.ok) {
+            const info = await fetch(`/api/verify/${ticketCode}`).then(r => r.json());
+            setResultName(info.order?.full_name ?? '');
+            setStatus('success');
+          } else {
+            setResultMsg(data.error || 'Invalid ticket.');
+            setStatus('error');
+          }
+        } catch {
+          setResultMsg('Network error.');
+          setStatus('error');
+        }
+        return; // stop scanning after a result
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    }
+
+    start();
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      stream?.getTracks().forEach(t => t.stop());
+    };
+  }, [adminPw]);
+
+  function reset() {
+    lastScanned.current = '';
+    setStatus('scanning');
+    setResultName('');
+    setResultMsg('');
+    // restart scanning
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    async function tick() {
+      if (!videoRef.current || !canvasRef.current) return;
+      if (videoRef.current.readyState < 2) { rafRef.current = requestAnimationFrame(tick); return; }
+      canvasRef.current.width = videoRef.current.videoWidth;
+      canvasRef.current.height = videoRef.current.videoHeight;
+      const ctx = canvasRef.current.getContext('2d')!;
+      ctx.drawImage(videoRef.current, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+      const jsQR = (await import('jsqr')).default;
+      const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+      if (code?.data && code.data !== lastScanned.current) {
+        lastScanned.current = code.data;
+        const match = code.data.match(/\/scan\/([a-f0-9-]{36})/i);
+        if (!match) { setTimeout(() => { lastScanned.current = ''; }, 2000); rafRef.current = requestAnimationFrame(tick); return; }
+        const ticketCode = match[1];
+        setStatus('checking');
+        try {
+          const res = await fetch(`/api/verify/${ticketCode}`, { method: 'POST', headers: { 'x-admin-password': adminPw } });
+          const data = await res.json();
+          if (res.status === 409) {
+            const info = await fetch(`/api/verify/${ticketCode}`).then(r => r.json());
+            setResultName(info.order?.full_name ?? ''); setStatus('already');
+          } else if (res.ok) {
+            const info = await fetch(`/api/verify/${ticketCode}`).then(r => r.json());
+            setResultName(info.order?.full_name ?? ''); setStatus('success');
+          } else {
+            setResultMsg(data.error || 'Invalid ticket.'); setStatus('error');
+          }
+        } catch { setResultMsg('Network error.'); setStatus('error'); }
+        return;
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    }
+    rafRef.current = requestAnimationFrame(tick);
+  }
+
+  const stateColor = status === 'success' ? '#22c55e' : status === 'already' ? '#f59e0b' : status === 'error' ? '#ef4444' : '#E8402A';
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/paso-logo.png" alt="PASO" className="h-6" />
+          <span className="font-display text-sm tracking-widest text-white/40">SCAN QR</span>
+        </div>
+        <button onClick={onClose} className="text-white/40 hover:text-white text-3xl leading-none transition-colors">×</button>
+      </div>
+
+      {/* Camera */}
+      <div className="relative flex-1 overflow-hidden bg-black">
+        <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+        <canvas ref={canvasRef} className="hidden" />
+
+        {/* Viewfinder */}
+        {status === 'scanning' && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="relative w-64 h-64">
+              {/* Corner brackets */}
+              {[['top-0 left-0', 'border-t-2 border-l-2'], ['top-0 right-0', 'border-t-2 border-r-2'], ['bottom-0 left-0', 'border-b-2 border-l-2'], ['bottom-0 right-0', 'border-b-2 border-r-2']].map(([pos, border]) => (
+                <div key={pos} className={`absolute ${pos} w-8 h-8 ${border}`} style={{ borderColor: '#E8402A' }} />
+              ))}
+              {/* Scan line */}
+              <div className="absolute left-0 right-0 h-0.5 top-1/2" style={{ background: 'rgba(232,64,42,0.7)', boxShadow: '0 0 8px #E8402A', animation: 'scanLine 2s ease-in-out infinite' }} />
+            </div>
+            <div className="absolute bottom-24 text-white/50 text-sm font-body text-center px-8">
+              Point camera at a PASO ticket QR code
+            </div>
+          </div>
+        )}
+
+        {/* Result overlay */}
+        {status !== 'scanning' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-8" style={{ background: 'rgba(0,0,0,0.92)' }}>
+            {status === 'checking' ? (
+              <>
+                <div className="w-20 h-20 rounded-full border-2 border-white/20 flex items-center justify-center mb-4" style={{ borderTopColor: '#E8402A', animation: 'spin 0.8s linear infinite' }} />
+                <p className="font-display text-2xl tracking-widest text-white/60">CHECKING...</p>
+              </>
+            ) : (
+              <>
+                <div className="w-28 h-28 rounded-full flex items-center justify-center mb-6" style={{ background: `${stateColor}18`, border: `3px solid ${stateColor}`, boxShadow: `0 0 40px ${stateColor}40` }}>
+                  <span className="font-display text-5xl" style={{ color: stateColor }}>
+                    {status === 'success' ? '✓' : status === 'already' ? '⚠' : '✗'}
+                  </span>
+                </div>
+                <p className="font-display text-4xl mb-2 text-center" style={{ color: stateColor }}>
+                  {status === 'success' ? 'CHECKED IN!' : status === 'already' ? 'ALREADY IN' : 'INVALID'}
+                </p>
+                {resultName && (
+                  <p className="font-display text-2xl text-white text-center mb-1">{resultName}</p>
+                )}
+                {resultMsg && (
+                  <p className="text-white/40 font-body text-sm text-center mb-6">{resultMsg}</p>
+                )}
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={reset}
+                    className="px-8 py-4 rounded-2xl font-display text-xl tracking-widest text-white"
+                    style={{ background: '#E8402A' }}
+                  >
+                    SCAN NEXT
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="px-6 py-4 rounded-2xl font-display text-xl tracking-widest"
+                    style={{ background: '#1a1a1a', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.08)' }}
+                  >
+                    DONE
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes scanLine { 0%,100% { top: 10%; } 50% { top: 88%; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
+    </div>
+  );
+}
 
 type Order = {
   id: string;
@@ -57,6 +276,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [actionLoading, setActionLoading] = useState('');
+  const [showScanner, setShowScanner] = useState(false);
 
   const fetchOrders = useCallback(async (password: string) => {
     setLoading(true);
@@ -172,6 +392,13 @@ export default function AdminPage() {
           <span className="font-display text-sm tracking-widest text-white/40">ADMIN</span>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowScanner(true)}
+            className="px-3 py-1.5 rounded-lg text-xs font-body text-white transition-colors font-display tracking-wider"
+            style={{ background: '#E8402A' }}
+          >
+            SCAN QR
+          </button>
           <button
             onClick={() => tab === 'orders' ? fetchOrders(adminPw) : fetchWaitlist(adminPw)}
             className="px-3 py-1.5 rounded-lg text-xs font-body text-white/40 hover:text-white transition-colors"
@@ -386,6 +613,13 @@ export default function AdminPage() {
           </>
         )}
       </div>
+
+      {showScanner && (
+        <QRScanner
+          adminPw={adminPw}
+          onClose={() => { setShowScanner(false); fetchOrders(adminPw); }}
+        />
+      )}
 
       {selectedOrder && (
         <div
