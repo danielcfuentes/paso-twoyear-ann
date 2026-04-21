@@ -16,13 +16,14 @@ function getTransporter() {
     return null;
   }
   console.log(`[email] Transporter created for ${user}, pass length: ${pass.length}`);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.SMTP_PORT || '465'),
     secure: true,
-    family: 4,
+    family: 4, // force IPv4 — Railway blocks IPv6 outbound
     auth: { user, pass },
-  });
+  } as any);
 }
 
 async function send(transporter: nodemailer.Transporter, mail: nodemailer.SendMailOptions) {
